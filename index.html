@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Grading System</title>
+
+<style>
+  /* Neumorphism · soft light-grey, raised & inset shadows */
+  :root{
+    --bg:#e4e4e6; --txt:#4b4b50; --muted:#8c8c93; --line:rgba(0,0,0,.07);
+    --dk:#c3c3c8; --lt:#ffffff; --acc:#4b4b50; --bad:#c0525c;
+    --raise:8px 8px 18px var(--dk),-8px -8px 18px var(--lt);
+    --raiseS:5px 5px 11px var(--dk),-5px -5px 11px var(--lt);
+    --inset:inset 5px 5px 10px var(--dk),inset -5px -5px 10px var(--lt);
+    --insetS:inset 3px 3px 7px var(--dk),inset -3px -3px 7px var(--lt);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{min-height:100%;}
+  body{font-family:'Inter','Segoe UI',system-ui,sans-serif;color:var(--txt);padding:30px 20px;min-height:100vh;
+    background:linear-gradient(145deg,#ececee,#dedee1);background-attachment:fixed;}
+  body.is-login{display:flex;align-items:center;justify-content:center;padding:20px;}
+
+  h1{text-align:center;font-weight:800;letter-spacing:-.02em;margin-bottom:6px;color:#3d3d42;}
+  .subtitle{text-align:center;color:var(--muted);margin-bottom:26px;}
+
+  .tabs{display:flex;justify-content:center;gap:14px;margin-bottom:30px;flex-wrap:wrap;}
+  .tab-btn{padding:11px 20px;background:var(--bg);border:none;border-radius:18px;color:var(--muted);box-shadow:var(--raiseS);
+    cursor:pointer;font-weight:600;font-size:.85rem;transition:.2s;}
+  .tab-btn:hover{color:var(--txt);}
+  .tab-btn.active{color:#3d3d42;box-shadow:var(--insetS);}
+
+  .container{max-width:900px;margin:0 auto;}
+  .card{border-radius:30px;padding:28px;margin:0 auto 20px;max-width:900px;display:none;}
+  .card.active{display:block;}
+  #teacherCard,#studentCard,#generateCard,#analyticsCard,#reportsCard,#loginScreen{background:var(--bg);border:none;box-shadow:var(--raise);}
+
+  label{display:block;margin:14px 0 8px;font-size:.82rem;color:var(--muted);font-weight:600;letter-spacing:.02em;}
+  input,select,textarea{width:100%;padding:12px 15px;background:var(--bg);border:none;border-radius:16px;color:var(--txt);font:inherit;outline:none;box-shadow:var(--insetS);transition:.2s;}
+  input::placeholder,textarea::placeholder{color:#a8a8ae;}
+  input:focus,select:focus,textarea:focus{box-shadow:var(--inset);}
+  select option{background:#e4e4e6;color:#4b4b50;}
+  textarea{resize:vertical;}
+
+  .question-block{background:var(--bg);border-radius:22px;padding:18px;margin-top:16px;position:relative;box-shadow:var(--raiseS);}
+  .q-remove{position:absolute;top:10px;right:12px;background:transparent;border:none;color:var(--bad);cursor:pointer;font-size:1rem;}
+
+  button.primary{width:100%;margin-top:20px;padding:14px;background:var(--bg);color:#3d3d42;font-weight:800;border:none;border-radius:20px;cursor:pointer;font-size:.95rem;transition:.2s;box-shadow:var(--raise);}
+  button.primary:hover{color:#000;}
+  button.primary:active{box-shadow:var(--insetS);}
+  button.secondary{padding:10px 18px;background:var(--bg);color:var(--txt);border:none;border-radius:16px;cursor:pointer;margin-top:12px;font-weight:600;transition:.2s;box-shadow:var(--raiseS);}
+  button.secondary:active{box-shadow:var(--insetS);}
+
+  .result-row{padding:14px;border-bottom:1px solid var(--line);}
+  .result-row:last-child{border-bottom:none;}
+  .badge{display:inline-block;padding:4px 12px;border-radius:14px;font-size:.75rem;font-weight:700;background:var(--bg);box-shadow:var(--insetS);}
+  .badge.correct,.badge.safe{color:#3d3d42;}
+  .badge.wrong{color:var(--bad);}
+  .badge.plagiarized{color:var(--muted);}
+
+  .total-box{text-align:center;padding:24px;background:var(--bg);border-radius:24px;margin-bottom:16px;box-shadow:var(--inset);}
+  .total-score{font-size:2.4rem;font-weight:800;color:#3d3d42;}
+
+  .analytics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:18px;margin-bottom:26px;}
+  .stat-card{background:var(--bg);border-radius:22px;padding:18px;text-align:center;box-shadow:var(--raiseS);}
+  .stat-num{font-size:1.8rem;font-weight:800;color:#3d3d42;}
+  .stat-label{font-size:.78rem;color:var(--muted);margin-top:4px;}
+  .competency-badge{display:inline-block;padding:6px 18px;border-radius:20px;font-weight:700;font-size:1rem;margin-top:4px;}
+  .plagiarism-table{width:100%;border-collapse:collapse;font-size:.85rem;}
+  .plagiarism-table th{text-align:left;padding:8px 10px;color:var(--muted);border-bottom:1px solid var(--line);}
+  .plagiarism-table td{padding:8px 10px;border-bottom:1px solid var(--line);}
+
+  .gen-q-block{background:var(--bg);border-radius:18px;padding:15px;margin-top:14px;box-shadow:var(--insetS);}
+  .gen-q-type{font-size:.75rem;color:var(--muted);font-weight:700;margin-bottom:4px;}
+  .gen-q-text{font-size:.9rem;color:var(--txt);}
+  .gen-q-answer{font-size:.8rem;color:var(--muted);margin-top:4px;}
+
+  .feedback-box{background:var(--bg);border-radius:18px;padding:15px;margin-top:10px;font-size:.82rem;box-shadow:var(--insetS);}
+  .feedback-box h4{color:#3d3d42;margin-bottom:6px;font-size:.82rem;}
+  .feedback-box ul{padding-left:16px;color:var(--muted);}
+  .feedback-box ul li{margin-bottom:3px;}
+  .overall-comment{color:var(--txt);margin-top:8px;font-style:italic;}
+
+  #loginScreen{width:100%;max-width:410px;border-radius:32px;padding:40px 34px;}
+  #loginScreen h2{color:#3d3d42;text-align:center;margin-bottom:6px;font-size:1.7rem;font-weight:800;letter-spacing:-.02em;}
+  #loginScreen .hint{color:var(--muted);font-size:.8rem;text-align:center;margin-bottom:18px;}
+  #loginError{display:none;color:var(--bad);border-radius:14px;padding:9px;font-size:.85rem;margin-top:14px;text-align:center;box-shadow:var(--insetS);}
+  #mainApp{display:none;}
+  .topbar{display:flex;justify-content:space-between;align-items:center;max-width:900px;margin:0 auto 20px;}
+  .user-pill{background:var(--bg);border-radius:22px;padding:8px 18px;font-size:.8rem;color:var(--muted);box-shadow:var(--raiseS);}
+  .user-pill b{color:#3d3d42;}
+  .logout-btn{background:var(--bg);border:none;color:var(--bad);padding:8px 18px;border-radius:16px;cursor:pointer;font-size:.8rem;font-weight:700;box-shadow:var(--raiseS);}
+  .logout-btn:active{box-shadow:var(--insetS);}
+  @media(max-width:640px){body{padding:18px 12px;}.card{padding:18px;}}
+</style>
+</head>
+<body class="is-login" data-theme="teacher">
+
+<!-- ══ LOGIN SCREEN ══════════════════════════════════════ -->
+<div id="loginScreen">
+  <h2>🎓 AI Grading System</h2>
+  <p class="hint">Login with your username and password (DOB as DDMMYYYY)</p>
+
+  <label>Username</label>
+  <input type="text" id="loginUsername" placeholder="e.g. teacher1 or student1">
+
+  <label>Password</label>
+  <input type="password" id="loginPassword" placeholder="DOB as DDMMYYYY">
+
+  <div style="text-align:right;margin-top:-6px;margin-bottom:10px;">
+    <span onclick="togglePasswordHint()"
+      style="font-size:0.8rem;color:var(--acc);cursor:pointer;text-decoration:underline;">
+      Forgot Password?
+    </span>
+  </div>
+
+  <div id="passwordHintBox" style="display:none;background:#e4e4e6;box-shadow:inset 4px 4px 8px #c3c3c8,inset -4px -4px 8px #fff;border:none;border-radius:14px;padding:12px 14px;margin-bottom:12px;font-size:0.84rem;color:var(--muted);line-height:1.7;">
+    🔑 <strong style="color:var(--txt);">Your password is your Date of Birth</strong> in <code style="background:transparent;padding:2px 6px;border-radius:4px;color:var(--acc);">DDMMYYYY</code> format.<br>
+    <span style="font-size:0.78rem;">Example: if your DOB is 5 Jan 2007 → password is <code style="background:transparent;padding:2px 6px;border-radius:4px;color:#3d3d42;">05012007</code></span><br><br>
+    <strong style="color:var(--txt);">Demo Accounts:</strong><br>
+    <span style="color:#8c8c93;">Teachers</span> — teacher1 to teacher5<br>
+    <span style="color:#3d3d42;">Students</span> — student1 to student5
+  </div>
+
+  <button class="primary" onclick="doLogin()">Login</button>
+  <p id="loginError"></p>
+</div>
+
+<!-- ══ MAIN APP (hidden until login) ════════════════════ -->
+<div id="mainApp">
+
+<h1>🎓 AI Grading System</h1>
+<p class="subtitle">Create exams · Grade answers · Generate questions · Track analytics</p>
+
+<div class="topbar">
+  <div class="user-pill">Logged in as <b id="userPillName"></b> &middot; <span id="userPillInstitution"></span></div>
+  <button class="logout-btn" onclick="doLogout()">Logout</button>
+</div>
+
+<div class="tabs">
+  <div class="tab-btn active" data-role="teacher" onclick="switchTab('teacher')">Teacher: Create Exam</div>
+  <div class="tab-btn" data-role="student" onclick="switchTab('student')">Student: Submit Answers</div>
+  <div class="tab-btn" data-role="any" onclick="switchTab('generate')">AI Question Generator</div>
+  <div class="tab-btn" data-role="any" onclick="switchTab('analytics')">Analytics Dashboard</div>
+  <div class="tab-btn" data-role="teacher" onclick="switchTab('reports')">📥 Student Reports</div>
+</div>
+
+<div class="container">
+
+  <!-- ══ TEACHER CARD ══════════════════════════════════ -->
+  <div class="card active" id="teacherCard">
+    <label>Exam Name</label>
+    <input type="text" id="examName" placeholder="e.g. Midterm English Test">
+
+    <!-- Teacher-only note: the essay grading model was trained on a 3,000-essay
+         sample of the PERSUADE 2.0 / ASAP 2.0 corpus, which only covers the 15
+         topics below. Essays on these topics will get the most reliable AI
+         scores; essays on unrelated topics can still be graded but the score
+         is less trustworthy since the model has never seen that kind of essay.
+         This box is only ever rendered inside teacherCard, so students never see it. -->
+    <div id="recommendedTitlesBox" style="background:#e4e4e6;box-shadow:inset 4px 4px 8px #c3c3c8,inset -4px -4px 8px #fff;border:none;border-radius:14px;padding:12px 14px;margin:10px 0 16px;font-size:0.82rem;color:var(--muted);line-height:1.6;">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleRecommendedTitles()">
+        <strong style="color:var(--txt);">📌 Recommended Essay Titles (for reliable AI scoring)</strong>
+        <span id="recommendedTitlesToggle" style="color:var(--acc);">Show ▾</span>
+      </div>
+      <div id="recommendedTitlesList" style="display:none;margin-top:10px;">
+        <p style="margin-bottom:8px;">
+          The essay-scoring model was trained on only <b style="color:var(--txt);">3,000 sampled essays</b>
+          (a random subset of the ~25,000-essay PERSUADE 2.0 / ASAP 2.0 corpus), covering these
+          <b style="color:var(--txt);">15 topics</b>. If your essay question's title/topic matches one of these,
+          the AI score is far more reliable. Titles outside this list will still be graded, but the
+          predicted score should be treated as a rough estimate, not a certainty.
+        </p>
+        <ul style="columns:2;padding-left:18px;margin:0;">
+          <li>Car-Free Cities</li>
+          <li>Does the electoral college work?</li>
+          <li>Exploring Venus</li>
+          <li>The Face on Mars</li>
+          <li>Facial action coding system</li>
+          <li>A Cowboy Who Rode the Waves</li>
+          <li>Driverless cars</li>
+          <li>Community service</li>
+          <li>Grades for extracurricular activities</li>
+          <li>Mandatory extracurricular activities</li>
+          <li>Cell phones at school</li>
+          <li>Distance learning</li>
+          <li>Seeking multiple opinions</li>
+          <li>Summer projects</li>
+          <li>Phones and driving</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="questionsContainer"></div>
+
+    <button class="secondary" onclick="addQuestion()">+ Add Question Manually</button>
+    <button class="primary" onclick="createExam()">Create Exam</button>
+    <p id="examIdDisplay" style="margin-top:12px;color:#3d3d42;"></p>
+  </div>
+
+  <!-- ══ STUDENT CARD ═══════════════════════════════════ -->
+  <div class="card" id="studentCard">
+    <label>Exam ID</label>
+    <input type="number" id="examIdInput" placeholder="Enter Exam ID given by teacher">
+
+    <label>Student Name</label>
+    <input type="text" id="studentName" placeholder="Your full name">
+
+    <label>Upload Response Sheet (PDF, DOCX, TXT, or Image)</label>
+    <input type="file" id="responseFile" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg">
+
+    <button class="primary" onclick="submitResponse()">Submit & Grade</button>
+
+    <div id="loadingMsg" style="display:none;text-align:center;margin-top:14px;color:var(--acc);">⏳ Grading in progress... please wait</div>
+
+    <div id="resultsBox" style="display:none;margin-top:20px;">
+      <div class="total-box">
+        <div class="total-score" id="totalScore">-</div>
+        <div id="percentage" style="color:var(--muted);"></div>
+      </div>
+      <div id="questionResults"></div>
+      <div style="text-align:center;margin-top:16px;">
+        <button class="secondary" onclick="downloadMyReport()" id="downloadReportBtn"
+          style="background:#e4e4e6;color:#3d3d42;box-shadow:5px 5px 11px #c3c3c8,-5px -5px 11px #fff;border:none;padding:10px 28px;border-radius:14px;font-size:0.9rem;cursor:pointer;font-weight:600;">
+          📄 Download My Report (PDF)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ AI QUESTION GENERATOR CARD ════════════════════ -->
+  <div class="card" id="generateCard">
+
+    <label>Topic</label>
+    <input type="text" id="genTopic" placeholder="e.g. Photosynthesis, World War II, Quadratic Equations">
+
+    <label>Question Type</label>
+    <select id="genType">
+      <option value="mcq">MCQ (Multiple Choice)</option>
+      <option value="short_answer">Short Answer</option>
+      <option value="essay">Essay</option>
+    </select>
+
+    <label>Difficulty Level</label>
+    <select id="genLevel">
+      <option value="easy">Easy — basic recall</option>
+      <option value="medium" selected>Medium — understanding</option>
+      <option value="hard">Hard — analysis & application</option>
+    </select>
+
+    <label>Number of Questions</label>
+    <input type="number" id="genCount" value="3" min="1" max="10">
+
+    <button class="primary" onclick="generateQuestions()">Generate with AI</button>
+
+    <div id="genLoading" style="display:none;text-align:center;margin-top:14px;color:var(--acc);">🤖 AI is generating questions...</div>
+    <div id="genError"   style="display:none;margin-top:12px;color:var(--bad);"></div>
+
+    <div id="genResults" style="margin-top:16px;"></div>
+
+    <div id="genAddToExam" style="display:none;margin-top:16px;">
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:8px;">Want to use these? Switch to "Teacher: Create Exam" tab and paste the questions manually, or click below to auto-fill:</p>
+      <button class="secondary" onclick="addGeneratedToExam()">Add Generated Questions to Exam Tab</button>
+    </div>
+  </div>
+
+  <!-- ══ ANALYTICS DASHBOARD CARD ══════════════════════ -->
+  <div class="card" id="analyticsCard">
+    <button class="secondary" onclick="loadAnalytics()" style="margin-bottom:16px;">🔄 Refresh Analytics</button>
+
+    <div id="analyticsLoading" style="display:none;text-align:center;color:var(--acc);">Loading analytics...</div>
+    <div id="analyticsError"  style="display:none;color:var(--bad);"></div>
+
+    <div id="analyticsDashboard" style="display:none;">
+
+      <!-- Summary stat cards -->
+      <div class="analytics-grid" id="summaryCards"></div>
+
+      <!-- Class Competency Level -->
+      <div style="background:transparent;border-radius:12px;padding:20px;margin-top:8px;">
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Class Competency Level</p>
+        <div id="competencyDisplay" style="font-size:1.5rem;font-weight:700;">—</div>
+        <p id="competencyDesc" style="color:var(--muted);font-size:0.85rem;margin-top:6px;"></p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+  <!-- ══ TEACHER REPORTS CARD ════════════════════════ -->
+  <div class="card" id="reportsCard" style="display:none;">
+    <label>Select Exam to View Reports</label>
+    <select id="reportExamSelect" onchange="loadStudentReports()">
+      <option value="">-- Select an Exam --</option>
+    </select>
+
+    <div id="reportsLoading" style="display:none;text-align:center;color:var(--acc);margin-top:12px;">Loading students...</div>
+    <div id="reportsError"   style="display:none;color:var(--bad);margin-top:12px;"></div>
+
+    <div id="reportsTable" style="display:none;margin-top:16px;">
+      <p style="color:var(--muted);font-size:0.82rem;margin-bottom:10px;">Click <b>Download PDF</b> next to any student to get their full graded report.</p>
+      <table style="width:100%;border-collapse:collapse;font-size:0.88rem;">
+        <thead>
+          <tr style="background:transparent;color:var(--muted);">
+            <th style="padding:10px 8px;text-align:left;border-bottom:1px solid rgba(0,0,0,.08);">Roll No</th>
+            <th style="padding:10px 8px;text-align:left;border-bottom:1px solid rgba(0,0,0,.08);">Student Name</th>
+            <th style="padding:10px 8px;text-align:center;border-bottom:1px solid rgba(0,0,0,.08);">Marks</th>
+            <th style="padding:10px 8px;text-align:center;border-bottom:1px solid rgba(0,0,0,.08);">%</th>
+            <th style="padding:10px 8px;text-align:center;border-bottom:1px solid rgba(0,0,0,.08);">AI Feedback</th>
+            <th style="padding:10px 8px;text-align:center;border-bottom:1px solid rgba(0,0,0,.08);">Download</th>
+          </tr>
+        </thead>
+        <tbody id="reportsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /mainApp -->
+
+<script>
+let questionCount   = 0;
+let generatedQs     = [];
+
+
+// ── Forgot Password hint toggle ───────────────────────
+function togglePasswordHint() {
+  const box = document.getElementById('passwordHintBox');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+// ── Recommended Essay Titles toggle (teacher-only box) ─
+function toggleRecommendedTitles() {
+  const list   = document.getElementById('recommendedTitlesList');
+  const toggle = document.getElementById('recommendedTitlesToggle');
+  const isHidden = list.style.display === 'none';
+  list.style.display = isHidden ? 'block' : 'none';
+  toggle.textContent  = isHidden ? 'Hide ▴' : 'Show ▾';
+}
+
+
+// Kept in memory only (no localStorage/sessionStorage — this is a static
+// page with no real session backend, so logging in again is required
+// after a page refresh; that's expected for this mock auth system).
+let currentUser = null; // { username, full_name, role, institution_name }
+
+async function doLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
+  const errorEl  = document.getElementById('loginError');
+  errorEl.style.display = 'none';
+
+  if (!username || !password) {
+    errorEl.textContent = 'Please enter both username and password.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    const res  = await fetch('http://localhost:5000/login', {
+      method  : 'POST',
+      headers : { 'Content-Type': 'application/json' },
+      body    : JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    currentUser = data.user;
+    applyLoggedInUI();
+
+  } catch (err) {
+    errorEl.textContent = 'Could not reach the server. Is app.py running?';
+    errorEl.style.display = 'block';
+  }
+}
+
+function doLogout() {
+  currentUser = null;
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('loginScreen').style.display = 'block';
+  document.body.classList.add('is-login');
+  document.getElementById('mainApp').style.display     = 'none';
+}
+
+function applyLoggedInUI() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.body.classList.remove('is-login');
+  document.getElementById('mainApp').style.display     = 'block';
+
+  document.getElementById('userPillName').textContent =
+    `${currentUser.full_name} (${currentUser.role})`;
+  document.getElementById('userPillInstitution').textContent =
+    currentUser.institution_name;
+
+  // Role-based tab visibility: teachers manage exams + see analytics,
+  // students submit answers + see analytics. Both can use the
+  // AI Question Generator since it doesn't touch any institution data.
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const role = btn.dataset.role;
+    const visible = (role === 'any') || (role === currentUser.role);
+    btn.style.display = visible ? 'inline-block' : 'none';
+  });
+
+  // Land on a sensible default tab for the role
+  switchTab(currentUser.role === 'teacher' ? 'teacher' : 'student');
+
+  // Pre-fill the student's name on the Submit Answers tab — we already
+  // know who's logged in, no need to make them retype it.
+  if (currentUser.role === 'student') {
+    const nameField = document.getElementById('studentName');
+    if (nameField) nameField.value = currentUser.full_name;
+  }
+}
+
+// ── Tab switching ─────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.card').forEach(c => { c.classList.remove('active'); c.style.display = 'none'; });
+  const tabs  = ['teacher','student','generate','analytics','reports'];
+  const cards = ['teacherCard','studentCard','generateCard','analyticsCard','reportsCard'];
+  const idx = tabs.indexOf(tab);
+  if (idx === -1) return;
+  document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+  document.body.setAttribute('data-theme', tab);
+  const card = document.getElementById(cards[idx]);
+  card.classList.add('active');
+  card.style.display = 'block';
+  if (tab === 'analytics') loadAnalytics();
+  if (tab === 'reports')   initReportsTab();
+}
+
+// ── Add question block manually ───────────────────────
+function addQuestion(prefill) {
+  questionCount++;
+  const container = document.getElementById('questionsContainer');
+  const div = document.createElement('div');
+  div.className = 'question-block';
+  const qnum = questionCount;
+
+  div.innerHTML = `
+    <button class="q-remove" onclick="this.parentElement.remove()">✕</button>
+    <label>Question ${qnum} Type</label>
+    <select class="qType" onchange="toggleFields(this, ${qnum})">
+      <option value="mcq">MCQ</option>
+      <option value="short_answer">Short Answer</option>
+      <option value="essay">Essay</option>
+    </select>
+
+    <label>Question Text</label>
+    <textarea class="qText" rows="2" placeholder="Question text (include A/B/C/D options for MCQ)"></textarea>
+
+    <div class="mcqField-${qnum}">
+      <label>Correct Option (A / B / C / D)</label>
+      <input type="text" class="qCorrect" placeholder="A">
+    </div>
+
+    <div class="shortField-${qnum}" style="display:none;">
+      <label>Model Answer</label>
+      <textarea class="qModel" rows="2" placeholder="Ideal answer..."></textarea>
+    </div>
+
+    <label>Max Marks</label>
+    <input type="number" class="qMarks" placeholder="5" value="5">
+  `;
+  div.dataset.qnum = qnum;
+  container.appendChild(div);
+
+  if (prefill) {
+    div.querySelector('.qType').value = prefill.question_type || 'mcq';
+    toggleFields(div.querySelector('.qType'), qnum);
+    div.querySelector('.qText').value    = prefill.question_text  || '';
+    div.querySelector('.qCorrect').value = prefill.correct_answer || '';
+    const modelEl = div.querySelector('.qModel');
+    if (modelEl) modelEl.value = prefill.model_answer || '';
+    div.querySelector('.qMarks').value   = prefill.max_marks || 5;
+  }
+}
+
+function toggleFields(selectEl, qnum) {
+  const type = selectEl.value;
+  const mcqField   = document.querySelector(`.mcqField-${qnum}`);
+  const shortField = document.querySelector(`.shortField-${qnum}`);
+  if (mcqField)   mcqField.style.display   = type === 'mcq'          ? 'block' : 'none';
+  if (shortField) shortField.style.display = type === 'short_answer' ? 'block' : 'none';
+}
+
+// ── Create Exam ───────────────────────────────────────
+async function createExam() {
+  const examName = document.getElementById('examName').value.trim();
+  if (!examName) { alert('Please enter an exam name.'); return; }
+
+  const blocks = document.querySelectorAll('.question-block');
+  if (blocks.length === 0) { alert('Please add at least one question.'); return; }
+
+  const questions = Array.from(blocks).map((block, i) => ({
+    question_number : i + 1,
+    question_text   : block.querySelector('.qText').value,
+    question_type   : block.querySelector('.qType').value,
+    correct_answer  : block.querySelector('.qCorrect') ? block.querySelector('.qCorrect').value : '',
+    model_answer    : block.querySelector('.qModel')   ? block.querySelector('.qModel').value   : '',
+    max_marks       : parseFloat(block.querySelector('.qMarks').value) || 5
+  }));
+
+  const res  = await fetch('http://localhost:5000/create_exam', {
+    method  : 'POST',
+    headers : { 'Content-Type': 'application/json' },
+    body    : JSON.stringify({
+      exam_name: examName,
+      questions,
+      institution_name: currentUser ? currentUser.institution_name : undefined
+    })
+  });
+  const data = await res.json();
+
+  if (data.error) {
+    document.getElementById('examIdDisplay').textContent = '❌ Error: ' + data.error;
+    document.getElementById('examIdDisplay').style.color = 'var(--bad)';
+  } else {
+    document.getElementById('examIdDisplay').textContent =
+      `✅ Exam Created! Exam ID = ${data.exam_id}  (share this with students)`;
+    document.getElementById('examIdDisplay').style.color = '#3d3d42';
+  }
+}
+
+// ── Submit Response ───────────────────────────────────
+let lastSubmittedExamId   = null;
+let lastSubmittedStudent  = null;
+
+async function submitResponse() {
+  const examId      = document.getElementById('examIdInput').value;
+  const studentName = document.getElementById('studentName').value.trim();
+  const file        = document.getElementById('responseFile').files[0];
+
+  if (!file || !examId || !studentName) {
+    alert('Please fill all fields and choose a file.');
+    return;
+  }
+
+  document.getElementById('loadingMsg').style.display = 'block';
+  document.getElementById('resultsBox').style.display = 'none';
+
+  const formData = new FormData();
+  formData.append('response_file', file);
+  formData.append('exam_id',       examId);
+  formData.append('student_name',  studentName);
+
+  const res  = await fetch('http://localhost:5000/submit_response', { method: 'POST', body: formData });
+  const data = await res.json();
+  document.getElementById('loadingMsg').style.display = 'none';
+
+  if (data.error) {
+    alert('Error: ' + data.error);
+    return;
+  }
+
+  document.getElementById('totalScore').textContent = `${data.total_awarded} / ${data.total_max}`;
+  document.getElementById('percentage').textContent = `${data.percentage}%  —  ${getGradeLabel(data.percentage)}`;
+
+  const resultsContainer = document.getElementById('questionResults');
+  resultsContainer.innerHTML = '';
+
+  data.question_results.forEach(q => {
+    const row = document.createElement('div');
+    row.className = 'result-row';
+
+    let badges = '';
+    if (q.question_type === 'mcq') {
+      badges += q.is_correct
+        ? `<span class="badge correct">Correct</span> `
+        : `<span class="badge wrong">Wrong</span> `;
+    }
+    if (q.is_plagiarized) {
+      badges += `<span class="badge plagiarized">⚠ Plagiarism Detected</span>`;
+    } else if (q.question_type !== 'mcq') {
+      badges += `<span class="badge safe">Original</span>`;
+    }
+
+    let plagiarismInfo = '';
+    if (q.is_plagiarized && q.plagiarism_matches && q.plagiarism_matches.length > 0) {
+      plagiarismInfo = `<div style="margin-top:6px;padding:8px;background:#e4e4e6;box-shadow:inset 4px 4px 8px #c3c3c8,inset -4px -4px 8px #fff;border:none;border-radius:14px;font-size:0.78rem;">
+        ⚠ Similar to: ${q.plagiarism_matches.map(m => `${m.matched_student} (${(m.similarity_score*100).toFixed(1)}%)`).join(', ')}
+      </div>`;
+    }
+
+    let feedbackHtml = '';
+    if (q.feedback && q.feedback.strengths) {
+      feedbackHtml = `<div class="feedback-box">
+        <h4>AI Feedback</h4>
+        <strong style="color:#3d3d42;font-size:0.8rem;">Strengths</strong>
+        <ul>${q.feedback.strengths.map(s => `<li>${s}</li>`).join('')}</ul>
+        <strong style="color:var(--bad);font-size:0.8rem;margin-top:6px;display:block;">Weaknesses</strong>
+        <ul>${q.feedback.weaknesses.map(s => `<li>${s}</li>`).join('')}</ul>
+        <strong style="color:var(--acc);font-size:0.8rem;margin-top:6px;display:block;">Suggestions</strong>
+        <ul>${q.feedback.suggestions.map(s => `<li>${s}</li>`).join('')}</ul>
+        <p class="overall-comment">${q.feedback.overall_comment || ''}</p>
+      </div>`;
+    }
+
+    row.innerHTML = `
+      <div style="margin-bottom:6px;">
+        <strong>Q${q.question_number} (${q.question_type})</strong>  ${badges}
+      </div>
+      <div style="color:var(--muted);font-size:0.85rem;margin-bottom:4px;">Your Answer: ${q.student_answer || '(no answer)'}</div>
+      <div style="color:var(--acc);font-size:0.9rem;">
+        Marks: <strong>${q.awarded_marks}</strong> / ${q.max_marks}
+        ${q.level ? `<span style="color:var(--muted);font-size:0.8rem;margin-left:10px;">${q.level}</span>` : ''}
+        ${q.similarity !== undefined ? `<span style="color:var(--muted);font-size:0.8rem;margin-left:10px;">Similarity: ${(q.similarity*100).toFixed(1)}%</span>` : ''}
+      </div>
+      ${plagiarismInfo}
+      ${feedbackHtml}
+    `;
+    resultsContainer.appendChild(row);
+  });
+
+  document.getElementById('resultsBox').style.display = 'block';
+  lastSubmittedExamId  = examId;
+  lastSubmittedStudent = studentName;
+}
+
+function getGradeLabel(pct) {
+  if (pct >= 85) return '🏆 Excellent';
+  if (pct >= 70) return '👍 Good';
+  if (pct >= 50) return '📚 Average';
+  return '📝 Needs Improvement';
+}
+
+// ── AI Question Generator ─────────────────────────────
+async function generateQuestions() {
+  const topic  = document.getElementById('genTopic').value.trim();
+  const q_type = document.getElementById('genType').value;
+  const level  = document.getElementById('genLevel').value;
+  const count  = parseInt(document.getElementById('genCount').value) || 3;
+
+  if (!topic) { alert('Please enter a topic.'); return; }
+
+  document.getElementById('genLoading').style.display = 'block';
+  document.getElementById('genResults').innerHTML     = '';
+  document.getElementById('genError').style.display   = 'none';
+  document.getElementById('genAddToExam').style.display = 'none';
+
+  try {
+    const res  = await fetch('http://localhost:5000/generate_questions', {
+      method  : 'POST',
+      headers : { 'Content-Type': 'application/json' },
+      body    : JSON.stringify({ topic, question_type: q_type, level, count })
+    });
+    const data = await res.json();
+
+    document.getElementById('genLoading').style.display = 'none';
+
+    if (data.error) {
+      document.getElementById('genError').textContent    = 'Error: ' + data.error;
+      document.getElementById('genError').style.display  = 'block';
+      return;
+    }
+
+    generatedQs = data.questions;
+
+    let html = `<p style="color:#3d3d42;margin-bottom:12px;font-size:0.85rem;">
+      ✅ Generated ${data.questions.length} question(s) on "${topic}" (${level} / ${q_type})</p>`;
+
+    data.questions.forEach((q, i) => {
+      html += `<div class="gen-q-block">
+        <div class="gen-q-type">${q.question_type.toUpperCase()} · ${q.max_marks} marks</div>
+        <div class="gen-q-text">Q${i+1}. ${q.question_text}</div>
+        ${q.correct_answer ? `<div class="gen-q-answer">✔ Correct answer: <strong>${q.correct_answer}</strong></div>` : ''}
+        ${q.model_answer   ? `<div class="gen-q-answer">Model answer: ${q.model_answer}</div>` : ''}
+      </div>`;
+    });
+
+    document.getElementById('genResults').innerHTML     = html;
+    document.getElementById('genAddToExam').style.display = 'block';
+
+  } catch(err) {
+    document.getElementById('genLoading').style.display  = 'none';
+    document.getElementById('genError').textContent      = 'Network error: ' + err.message;
+    document.getElementById('genError').style.display    = 'block';
+  }
+}
+
+function addGeneratedToExam() {
+  switchTab('teacher');
+  generatedQs.forEach(q => addQuestion(q));
+  alert(`${generatedQs.length} question(s) added to the exam tab!`);
+}
+
+// ── Analytics Dashboard ───────────────────────────────
+async function loadAnalytics() {
+  document.getElementById('analyticsLoading').style.display   = 'block';
+  document.getElementById('analyticsDashboard').style.display = 'none';
+  document.getElementById('analyticsError').style.display     = 'none';
+
+  try {
+    const institutionQuery = currentUser
+      ? `?institution_name=${encodeURIComponent(currentUser.institution_name)}`
+      : '';
+    const res  = await fetch('http://localhost:5000/analytics' + institutionQuery);
+    const data = await res.json();
+    document.getElementById('analyticsLoading').style.display = 'none';
+
+    if (data.error) {
+      document.getElementById('analyticsError').textContent   = 'Error: ' + data.error;
+      document.getElementById('analyticsError').style.display = 'block';
+      return;
+    }
+
+    // ── Core stats
+    const totalStudents = [...new Set(data.student_stats.map(s => s.student))].length;
+    const totalExams    = data.exam_stats.length;
+
+    const allScores  = data.all_scores;
+    const avgScore   = allScores.length
+      ? (allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(2)
+      : 0;
+
+    // Accurate: sum of awarded marks / sum of max possible marks across all students
+    const totalAwarded  = data.student_stats.reduce((a, s) => a + (s.total_marks     || 0), 0);
+    const totalPossible = data.student_stats.reduce((a, s) => a + (s.total_max_marks || 0), 0);
+    const pct = totalPossible > 0 ? Math.round((totalAwarded / totalPossible) * 100) : 0;
+    const avgDisplay = totalPossible > 0
+      ? `${totalAwarded.toFixed(1)} / ${totalPossible.toFixed(1)}`
+      : `${totalAwarded.toFixed(1)}`;
+
+    // Competency bands
+    let competencyLabel, competencyColor, competencyDesc;
+    if (pct >= 85) {
+      competencyLabel = '★ Excellent';
+      competencyColor = '#3d3d42';
+      competencyDesc  = 'Class is performing at an excellent level. Strong understanding across the board.';
+    } else if (pct >= 70) {
+      competencyLabel = '● Good';
+      competencyColor = '#3d3d42';
+      competencyDesc  = 'Class shows good competency. Minor gaps may need attention.';
+    } else if (pct >= 50) {
+      competencyLabel = '◐ Average';
+      competencyColor = '#7a7a82';
+      competencyDesc  = 'Class is at an average level. Targeted revision recommended.';
+    } else {
+      competencyLabel = '▲ Needs Improvement';
+      competencyColor = 'var(--bad)';
+      competencyDesc  = 'Class competency is below average. Significant intervention needed.';
+    }
+
+    // ── Render summary cards
+    document.getElementById('summaryCards').innerHTML = `
+      <div class="stat-card"><div class="stat-num">${totalExams}</div><div class="stat-label">Total Exams</div></div>
+      <div class="stat-card"><div class="stat-num">${totalStudents}</div><div class="stat-label">Total Students Attended</div></div>
+      <div class="stat-card"><div class="stat-num" style="font-size:1.2rem;">${avgDisplay}</div><div class="stat-label">Avg Marks (Awarded / Total)</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:#8c8c93;">${pct}%</div><div class="stat-label">Class Avg %</div></div>
+    `;
+
+    // ── Render competency
+    const compEl = document.getElementById('competencyDisplay');
+    compEl.textContent  = competencyLabel;
+    compEl.style.color  = competencyColor;
+    document.getElementById('competencyDesc').textContent = competencyDesc;
+
+    document.getElementById('analyticsDashboard').style.display = 'block';
+
+  } catch(err) {
+    document.getElementById('analyticsLoading').style.display = 'none';
+    document.getElementById('analyticsError').textContent     = 'Network error: ' + err.message;
+    document.getElementById('analyticsError').style.display   = 'block';
+  }
+}
+
+// ── Student: Download own PDF report ─────────────────
+function downloadMyReport() {
+  if (!lastSubmittedExamId || !lastSubmittedStudent) {
+    alert('Please submit your answers first before downloading the report.');
+    return;
+  }
+  const rollNo = (currentUser && currentUser.roll_number) ? currentUser.roll_number : '';
+  const url = `http://localhost:5000/download_report?student_name=${encodeURIComponent(lastSubmittedStudent)}&exam_id=${lastSubmittedExamId}&roll_number=${encodeURIComponent(rollNo)}`;
+  window.open(url, '_blank');
+}
+
+// ── Teacher: Init Reports Tab — populate exam dropdown ──
+async function initReportsTab() {
+  const sel = document.getElementById('reportExamSelect');
+  // Reload exam list fresh every time tab opens
+  sel.innerHTML = '<option value="">-- Select an Exam --</option>';
+  document.getElementById('reportsTable').style.display  = 'none';
+  document.getElementById('reportsError').style.display  = 'none';
+
+  try {
+    const institutionQuery = currentUser
+      ? `?institution_name=${encodeURIComponent(currentUser.institution_name)}`
+      : '';
+    const res  = await fetch('http://localhost:5000/list_exams' + institutionQuery);
+    const data = await res.json();
+    if (data.exams && data.exams.length > 0) {
+      data.exams.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value       = e.exam_id;
+        opt.textContent = `${e.exam_name}  (ID: ${e.exam_id})`;
+        sel.appendChild(opt);
+      });
+    } else {
+      sel.innerHTML = '<option value="">No exams found</option>';
+    }
+  } catch(err) {
+    document.getElementById('reportsError').textContent = 'Failed to load exams: ' + err.message;
+    document.getElementById('reportsError').style.display = 'block';
+  }
+}
+
+// ── Teacher: Load students for selected exam ──────────
+async function loadStudentReports() {
+  const examId = document.getElementById('reportExamSelect').value;
+  if (!examId) {
+    document.getElementById('reportsTable').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('reportsLoading').style.display = 'block';
+  document.getElementById('reportsTable').style.display   = 'none';
+  document.getElementById('reportsError').style.display   = 'none';
+
+  try {
+    const res  = await fetch(`http://localhost:5000/list_submissions?exam_id=${examId}`);
+    const data = await res.json();
+    document.getElementById('reportsLoading').style.display = 'none';
+
+    if (data.error) {
+      document.getElementById('reportsError').textContent  = data.error;
+      document.getElementById('reportsError').style.display = 'block';
+      return;
+    }
+
+    const tbody = document.getElementById('reportsTableBody');
+    tbody.innerHTML = '';
+
+    if (!data.students || data.students.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px;">No submissions yet for this exam.</td></tr>';
+    } else {
+      data.students.forEach(s => {
+        const pctColor = s.percentage >= 70 ? '#3d3d42' : s.percentage >= 50 ? '#3d3d42' : 'var(--bad)';
+        const dlUrl = `http://localhost:5000/download_report?student_name=${encodeURIComponent(s.student_name)}&exam_id=${examId}&roll_number=${encodeURIComponent(s.roll_number)}`;
+
+        // AI Feedback status — teacher-only signal showing whether the Groq
+        // API actually generated feedback for this student's essay answers,
+        // or silently fell back to the generic template.
+        let aiFeedbackCell;
+        if (!s.essay_count || s.essay_count === 0) {
+          aiFeedbackCell = `<span style="color:var(--muted);">— no essays —</span>`;
+        } else if (s.ai_feedback_count === s.essay_count) {
+          aiFeedbackCell = `<span style="color:#3d3d42;">✅ AI (${s.ai_feedback_count}/${s.essay_count})</span>`;
+        } else if (s.ai_feedback_count === 0) {
+          aiFeedbackCell = `<span style="color:var(--bad);">⚠ Fallback (${s.fallback_count}/${s.essay_count})</span>`;
+        } else {
+          aiFeedbackCell = `<span style="color:#8c8c93;">⚠ Mixed (${s.ai_feedback_count} AI / ${s.fallback_count} fallback)</span>`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid rgba(0,0,0,.08)';
+        tr.innerHTML = `
+          <td style="padding:10px 8px;color:var(--muted);">${s.roll_number}</td>
+          <td style="padding:10px 8px;font-weight:600;">${s.student_name}</td>
+          <td style="padding:10px 8px;text-align:center;">${s.total_awarded} / ${s.total_max}</td>
+          <td style="padding:10px 8px;text-align:center;color:${pctColor};font-weight:700;">${s.percentage}%</td>
+          <td style="padding:10px 8px;text-align:center;font-size:0.8rem;">${aiFeedbackCell}</td>
+          <td style="padding:10px 8px;text-align:center;">
+            <a href="${dlUrl}" target="_blank"
+               style="background:#e4e4e6;color:#3d3d42;box-shadow:5px 5px 11px #c3c3c8,-5px -5px 11px #fff;padding:6px 14px;border-radius:14px;text-decoration:none;font-size:0.82rem;font-weight:600;">
+              📄 PDF
+            </a>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+    document.getElementById('reportsTable').style.display = 'block';
+
+  } catch(err) {
+    document.getElementById('reportsLoading').style.display = 'none';
+    document.getElementById('reportsError').textContent    = 'Network error: ' + err.message;
+    document.getElementById('reportsError').style.display  = 'block';
+  }
+}
+</script>
+</body>
+</html>
